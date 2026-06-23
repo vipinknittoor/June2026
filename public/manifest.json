@@ -1,0 +1,17 @@
+{
+  "name": "Task Assign Dashboard",
+  "short_name": "Task Dashboard",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#2563eb",
+  "description": "Clean Next.js starter for the Task Assign Dashboard project.",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon"
+    }
+  ],
+  "orientation": "portrait"
+}
