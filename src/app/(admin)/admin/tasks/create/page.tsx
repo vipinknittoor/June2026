@@ -1,10 +1,10 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Send, Save } from "lucide-react";
+import { Send, Save, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -20,11 +20,13 @@ export default function CreateTaskPage() {
   const managers = useManagers();
   const employeeList = employees.data ?? [];
   const [submitMode, setSubmitMode] = useState<"DRAFT" | "ASSIGNED">("ASSIGNED");
+  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
+
   const {
-    control,
     register,
     handleSubmit,
     setError,
+    setValue,
     formState: { errors },
   } = useForm<TaskFormValues>({
     resolver: zodResolver(taskSchema),
@@ -34,20 +36,33 @@ export default function CreateTaskPage() {
     },
   });
 
+  function toggleAssignee(id: string) {
+    const next = assigneeIds.includes(id)
+      ? assigneeIds.filter((a) => a !== id)
+      : [...assigneeIds, id];
+    setAssigneeIds(next);
+    setValue("assigneeIds", next);
+  }
+
+  function removeAssignee(id: string) {
+    const next = assigneeIds.filter((a) => a !== id);
+    setAssigneeIds(next);
+    setValue("assigneeIds", next);
+  }
+
   async function onSubmit(values: TaskFormValues) {
     if (submitMode === "ASSIGNED") {
-      if (values.assigneeIds.length === 0) {
+      if (assigneeIds.length === 0) {
         setError("assigneeIds", { message: "Select at least one employee to assign" });
         return;
       }
-
       if (!values.reviewingManagerId) {
         setError("reviewingManagerId", { message: "Select a reviewing manager to assign" });
         return;
       }
     }
 
-    const task = await createTask.mutateAsync({ ...values, status: submitMode });
+    const task = await createTask.mutateAsync({ ...values, assigneeIds, status: submitMode });
     router.push(`/admin/tasks/${task.id}`);
   }
 
@@ -71,51 +86,77 @@ export default function CreateTaskPage() {
             <option value="MEDIUM">Medium</option>
             <option value="HIGH">High</option>
           </Select>
-          <Controller
-            control={control}
-            name="assigneeIds"
-            render={({ field }) => (
-              <fieldset>
-                <legend className="text-sm font-medium text-slate-700">Employees</legend>
-                <label className="mt-2 flex items-center gap-2 rounded-md border border-primary/30 bg-blue-50 p-3 text-sm font-semibold text-primary">
-                  <input
-                    checked={
-                      employeeList.length > 0 && field.value.length === employeeList.length
-                    }
-                    className="h-4 w-4 accent-primary"
-                    onChange={(event) => {
-                      field.onChange(
-                        event.target.checked ? employeeList.map((employee) => employee.id) : [],
-                      );
-                    }}
-                    type="checkbox"
-                  />
-                  Assign to every employee
-                </label>
-                <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                  {employeeList.map((employee) => (
-                    <label className="flex items-center gap-2 rounded-md border border-slate-200 p-3 text-sm" key={employee.id}>
-                      <input
-                        checked={field.value.includes(employee.id)}
-                        className="h-4 w-4 accent-primary"
-                        onChange={(event) => {
-                          const nextValue = event.target.checked
-                            ? [...field.value, employee.id]
-                            : field.value.filter((id) => id !== employee.id);
-                          field.onChange(nextValue);
-                        }}
-                        type="checkbox"
-                      />
-                      {employee.name}
-                    </label>
-                  ))}
-                </div>
-                {errors.assigneeIds?.message ? (
-                  <p className="mt-1 text-xs text-red-600">{errors.assigneeIds.message}</p>
-                ) : null}
-              </fieldset>
+
+          {/* Employees multi-select dropdown */}
+          <div>
+            <div className="flex items-center justify-between">
+              <label className="block text-sm font-medium text-slate-700">Employees</label>
+              {assigneeIds.length === employeeList.length && employeeList.length > 0 ? (
+                <button
+                  className="text-xs font-medium text-red-500 hover:underline"
+                  onClick={() => { setAssigneeIds([]); setValue("assigneeIds", []); }}
+                  type="button"
+                >
+                  Clear all
+                </button>
+              ) : (
+                <button
+                  className="text-xs font-medium text-primary hover:underline"
+                  onClick={() => { const all = employeeList.map((e) => e.id); setAssigneeIds(all); setValue("assigneeIds", all); }}
+                  type="button"
+                >
+                  Assign to all employees
+                </button>
+              )}
+            </div>
+            <select
+              className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary"
+              onChange={(e) => {
+                const id = e.target.value;
+                if (id) toggleAssignee(id);
+                e.target.value = "";
+              }}
+              value=""
+            >
+              <option value="">— Select an employee to add —</option>
+              {employeeList
+                .filter((emp) => !assigneeIds.includes(emp.id))
+                .map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.name}{emp.title ? ` · ${emp.title}` : ""}
+                  </option>
+                ))}
+            </select>
+
+            {/* Selected employee tags */}
+            {assigneeIds.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {assigneeIds.map((id) => {
+                  const emp = employeeList.find((e) => e.id === id);
+                  return emp ? (
+                    <span
+                      className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+                      key={id}
+                    >
+                      {emp.name}
+                      <button
+                        className="rounded-full hover:text-red-500"
+                        onClick={() => removeAssignee(id)}
+                        type="button"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ) : null;
+                })}
+              </div>
             )}
-          />
+
+            {errors.assigneeIds?.message ? (
+              <p className="mt-1 text-xs text-red-600">{errors.assigneeIds.message}</p>
+            ) : null}
+          </div>
+
           <Select
             error={errors.reviewingManagerId?.message}
             label="Reviewing manager"

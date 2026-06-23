@@ -8,18 +8,21 @@ export const demoUsers: User[] = [
     name: "Aarav Manager",
     email: "admin@test.com",
     role: "ADMIN",
+    title: "Project Manager",
   },
   {
     id: "employee-1",
     name: "Meera Employee",
     email: "employee@test.com",
     role: "EMPLOYEE",
+    title: "Software Developer",
   },
   {
     id: "employee-2",
     name: "Kabir Employee",
     email: "kabir@test.com",
     role: "EMPLOYEE",
+    title: "DevOps Engineer",
   },
 ];
 
@@ -38,7 +41,7 @@ export let mockTasks: Task[] = [
     endDate: "2026-07-05",
     assignedBy: demoUsers[0],
     reviewingManager: demoUsers[0],
-    assignees: [demoUsers[1], demoUsers[2]],
+    assignees: [],
     priority: "LOW",
     status: "DRAFT",
     acceptanceCriteria: "Draft includes title, goal, assignees, priority, and review owner.",

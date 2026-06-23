@@ -143,7 +143,7 @@ export function useCreateEmployee() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (payload: { name: string; email: string; role: "EMPLOYEE" | "ADMIN"; password?: string }) =>
+    mutationFn: (payload: { name: string; email: string; role: "EMPLOYEE" | "ADMIN"; password?: string; title?: string }) =>
       addEmployee(payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["users", "employees"] });

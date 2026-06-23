@@ -69,7 +69,12 @@ export function AppShell({
             />
             <div>
               <h1 className="text-base font-semibold text-slate-950 sm:text-lg">{title}</h1>
-              <p className="hidden text-xs text-slate-500 sm:block">{user?.name}</p>
+              <p className="hidden text-xs text-slate-500 sm:block">
+                {user?.name}
+                {user?.title ? (
+                  <span className="ml-1 text-slate-400">· {user.title}</span>
+                ) : null}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">

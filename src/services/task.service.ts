@@ -43,6 +43,7 @@ export async function getMyTasks(): Promise<Task[]> {
     return response.data;
   } catch {
     return mockTasks.filter((task) =>
+      task.status !== "DRAFT" &&
       task.assignees.some((assignee) => assignee.id === "employee-1"),
     );
   }
@@ -409,6 +410,7 @@ export interface AddEmployeePayload {
   email: string;
   role: "EMPLOYEE" | "ADMIN";
   password?: string;
+  title?: string;
 }
 
 export async function addEmployee(payload: AddEmployeePayload): Promise<User> {
@@ -422,6 +424,7 @@ export async function addEmployee(payload: AddEmployeePayload): Promise<User> {
       name: payload.name,
       email: emailLower,
       role: payload.role,
+      title: payload.title as User["title"],
     };
     demoUsers.push(newUser);
     if (payload.password) {

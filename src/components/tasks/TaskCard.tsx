@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CalendarDays, Flag } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { TaskStatusBadge } from "./TaskStatusBadge";
+import { RAGPill } from "./RAGIndicator";
 import { formatDate, isOverdue } from "@/lib/utils";
 import type { Task } from "@/types/task.types";
 
@@ -28,6 +29,7 @@ export function TaskCard({ task, href }: { task: Task; href: string }) {
             {task.priority}
           </span>
           {overdue ? <span className="text-red-600">Overdue</span> : null}
+          <RAGPill task={task} />
         </div>
       </Card>
     </Link>
