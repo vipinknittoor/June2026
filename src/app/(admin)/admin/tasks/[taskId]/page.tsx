@@ -121,6 +121,23 @@ export default function AdminTaskDetailPage() {
 
   const canDelete = task.status === "DRAFT" || task.status === "ASSIGNED";
 
+  // Find the date the task was completed or submitted
+  const completionDateStr = (() => {
+    if (task.status === "APPROVED" && task.actualCompletionDate) {
+      return getLocalDateStr(task.actualCompletionDate);
+    }
+    const completionLog = [...task.auditLogs]
+      .filter((log) => {
+        const action = log.action.toLowerCase();
+        return action.includes("submitted") || action.includes("approved");
+      })
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+    
+    return completionLog ? getLocalDateStr(completionLog.createdAt) : null;
+  })();
+
+  const isCompletedEarly = completionDateStr && completionDateStr < task.endDate;
+
   return (
     <div className="mx-auto max-w-5xl space-y-5">
       <Card>
@@ -194,6 +211,27 @@ export default function AdminTaskDetailPage() {
         <Info label="Reviewing manager" value={task.reviewingManager.name} />
         <Info label="Assignees" value={task.assignees.map((user) => user.name).join(", ")} />
         <Info label="Effort logged" value={task.effortHours ? `${task.effortHours}h` : "0h"} />
+        {completionDateStr && (
+          <div className="sm:col-span-2 border-t border-slate-100 pt-3 mt-1 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase text-slate-500">Actual Completion/Submission</p>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <span className="text-sm font-semibold text-slate-900">
+                  {formatDate(completionDateStr + "T00:00:00")}
+                </span>
+                {isCompletedEarly ? (
+                  <span className="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700 border border-emerald-100">
+                    🎉 Completed before deadline!
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded bg-slate-50 px-2 py-0.5 text-xs font-bold text-slate-700 border border-slate-200">
+                    Completed on track
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </Card>
       {/* RAG Health Graph */}
       <RAGIndicator task={task} />
@@ -296,6 +334,9 @@ export default function AdminTaskDetailPage() {
               <span className="h-2.5 w-2.5 rounded-full bg-amber-400" /> Pending Today
             </span>
             <span className="flex items-center gap-1.5 text-slate-600">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-100 border border-emerald-300" /> Completed
+            </span>
+            <span className="flex items-center gap-1.5 text-slate-600">
               <span className="h-2.5 w-2.5 rounded-full bg-slate-200" /> Upcoming
             </span>
           </div>
@@ -315,9 +356,11 @@ export default function AdminTaskDetailPage() {
                 const logsOnDay = task.effortLogs.filter((log) => getLocalDateStr(log.createdAt) === dateStr);
                 const attachmentsOnDay = task.attachments.filter((att) => getLocalDateStr(att.createdAt) === dateStr);
                 
-                let status: "LOGGED" | "MISSED" | "PENDING" | "UPCOMING" = "UPCOMING";
+                let status: "LOGGED" | "MISSED" | "PENDING" | "UPCOMING" | "COMPLETED" = "UPCOMING";
                 if (logsOnDay.length > 0) {
                   status = "LOGGED";
+                } else if (completionDateStr && dateStr > completionDateStr) {
+                  status = "COMPLETED";
                 } else if (dateStr < todayStr) {
                   status = "MISSED";
                 } else if (dateStr === todayStr) {
@@ -331,11 +374,13 @@ export default function AdminTaskDetailPage() {
                       status === "LOGGED" ? "bg-emerald-500 text-white" :
                       status === "MISSED" ? "bg-rose-500 text-white" :
                       status === "PENDING" ? "bg-amber-400 text-white animate-pulse" :
+                      status === "COMPLETED" ? "bg-emerald-100 text-emerald-600" :
                       "bg-slate-200 text-slate-500"
                     }`}>
                       {status === "LOGGED" && <Check className="h-3 w-3" />}
                       {status === "MISSED" && <X className="h-3.5 w-3.5" />}
                       {status === "PENDING" && <Clock className="h-3 w-3" />}
+                      {status === "COMPLETED" && <Check className="h-3 w-3" />}
                     </div>
 
                     {/* Day content */}
@@ -350,6 +395,15 @@ export default function AdminTaskDetailPage() {
                         {status === "PENDING" && (
                           <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700 border border-amber-200">
                             Today
+                          </span>
+                        )}
+                        {dateStr === completionDateStr && (
+                          <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold border flex items-center gap-1 ${
+                            isCompletedEarly 
+                              ? "bg-emerald-500 text-white border-emerald-600 shadow-sm" 
+                              : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          }`}>
+                            {isCompletedEarly ? "🎉 Completed & Submitted Before Time!" : "✅ Completed & Submitted"}
                           </span>
                         )}
                       </div>
@@ -398,6 +452,11 @@ export default function AdminTaskDetailPage() {
                           <div className="rounded-lg border border-amber-100 bg-amber-50/20 p-2.5 text-xs text-amber-700 font-medium flex items-center gap-1.5">
                             <Clock className="h-4 w-4 text-amber-500 shrink-0 animate-pulse" />
                             <span>Pending EOD update — employee has not yet logged effort for today.</span>
+                          </div>
+                        ) : status === "COMPLETED" ? (
+                          <div className="rounded-lg border border-emerald-100 bg-emerald-50/20 p-2.5 text-xs text-emerald-800 font-medium flex items-center gap-1.5">
+                            <Check className="h-4 w-4 text-emerald-500 shrink-0" />
+                            <span>Task already completed and submitted. No further EOD updates required.</span>
                           </div>
                         ) : (
                           <div className="text-xs text-slate-400 pl-1 font-medium">Upcoming schedule day.</div>

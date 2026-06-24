@@ -73,16 +73,42 @@ export function RAGIndicator({ task }: { task: Task }) {
   const rag = computeRAG(task);
   const config = RAG_CONFIG[rag];
 
-  const now = new Date();
+  // Find the date the task was completed or submitted
+  const completionDate = (() => {
+    if (task.status === "APPROVED" && task.actualCompletionDate) {
+      return new Date(task.actualCompletionDate);
+    }
+    const completionLog = [...task.auditLogs]
+      .filter((log) => {
+        const action = log.action.toLowerCase();
+        return action.includes("submitted") || action.includes("approved");
+      })
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+    
+    return completionLog ? new Date(completionLog.createdAt) : null;
+  })();
+
+  const getLocalDateStr = (d: Date | string) => {
+    const dateObj = new Date(d);
+    const yyyy = dateObj.getFullYear();
+    const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const dd = String(dateObj.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
+  const referenceDate = completionDate || new Date();
   const start = new Date(task.startDate);
   const end = new Date(task.endDate);
   const totalMs = end.getTime() - start.getTime();
-  const elapsedMs = now.getTime() - start.getTime();
+  const elapsedMs = referenceDate.getTime() - start.getTime();
   const pct = totalMs > 0 ? Math.max(0, Math.min((elapsedMs / totalMs) * 100, 100)) : 0;
 
   const daysTotal = Math.ceil(totalMs / (1000 * 60 * 60 * 24));
-  const daysLeft = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  const daysLeft = Math.ceil((end.getTime() - referenceDate.getTime()) / (1000 * 60 * 60 * 24));
   const daysElapsed = daysTotal - Math.max(daysLeft, 0);
+
+  const completionDateStr = completionDate ? getLocalDateStr(completionDate) : null;
+  const isCompletedEarly = completionDateStr && completionDateStr < task.endDate;
 
   return (
     <div className={`rounded-xl border ${config.borderColor} ${config.bgColor} p-4`}>
@@ -138,7 +164,21 @@ export function RAGIndicator({ task }: { task: Task }) {
         <span>
           <span className="font-semibold text-slate-700">{daysElapsed}</span> / {daysTotal} days elapsed
         </span>
-        {daysLeft > 0 ? (
+        {completionDate ? (
+          daysLeft > 0 ? (
+            <span className="text-emerald-600 font-semibold flex items-center gap-1">
+              🎉 Completed early by {daysLeft} {daysLeft === 1 ? "day" : "days"}!
+            </span>
+          ) : daysLeft === 0 ? (
+            <span className="text-emerald-600 font-semibold">
+              ✅ Completed on time!
+            </span>
+          ) : (
+            <span className="text-amber-600 font-semibold">
+              Completed {Math.abs(daysLeft)} {Math.abs(daysLeft) === 1 ? "day" : "days"} past deadline
+            </span>
+          )
+        ) : daysLeft > 0 ? (
           <span>
             <span className="font-semibold text-slate-700">{daysLeft}</span> days remaining
           </span>
@@ -150,7 +190,11 @@ export function RAGIndicator({ task }: { task: Task }) {
       </div>
 
       {/* Description */}
-      <p className={`mt-2 text-xs ${config.textColor}`}>{config.description}</p>
+      <p className={`mt-2 text-xs ${config.textColor}`}>
+        {completionDate && isCompletedEarly
+          ? `🎉 Excellent! The task was completed and submitted ahead of schedule.`
+          : config.description}
+      </p>
     </div>
   );
 }
