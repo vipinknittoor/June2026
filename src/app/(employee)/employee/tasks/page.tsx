@@ -31,6 +31,7 @@ const COLUMNS: { key: Task["status"][]; label: string; color: string; dot: strin
   { key: ["IN_PROGRESS"], label: "Accepted",          color: "bg-violet-50 border-violet-200", dot: "bg-violet-400" },
   { key: ["SUBMITTED"],   label: "Submitted for Review", color: "bg-amber-50 border-amber-200",  dot: "bg-amber-400"  },
   { key: ["REOPENED"],    label: "Reopened",          color: "bg-rose-50 border-rose-200",   dot: "bg-rose-400"   },
+  { key: ["APPROVED"],    label: "Approved",          color: "bg-emerald-50 border-emerald-200", dot: "bg-emerald-400" },
 ];
 
 /* ─── Priority colour ────────────────────────────────────────── */
@@ -65,14 +66,14 @@ export default function EmployeeTasksPage() {
       </div>
 
       {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {COLUMNS.map((col) => <Skeleton className="h-48" key={col.label} />)}
         </div>
       ) : isError ? (
         <p className="rounded-md bg-red-50 p-4 text-sm text-red-700">Tasks could not be loaded.</p>
       ) : (
         /* ── Kanban board ── */
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {COLUMNS.map((col) => {
             const tasks = data.filter((t) => col.key.includes(t.status));
             return (
@@ -312,7 +313,7 @@ function TaskDetailPanel({ task, onClose }: { task: Task; onClose: () => void })
                 className="rounded-xl border-2 border-dashed border-slate-200 bg-white p-4"
                 onSubmit={progressForm.handleSubmit(submitProgress)}
               >
-                <p className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">Log today's update</p>
+                <p className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">Log today&apos;s update</p>
                 <Textarea
                   label="What did you work on today?"
                   {...progressForm.register("notes")}

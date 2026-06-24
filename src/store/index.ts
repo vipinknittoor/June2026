@@ -13,7 +13,7 @@ const createNoopStorage = () => ({
 });
 
 const storage =
-  typeof window !== "undefined" ? createWebStorage("local") : createNoopStorage();
+  typeof window !== "undefined" ? createWebStorage("session") : createNoopStorage();
 
 const rootReducer = combineReducers({
   auth: authReducer,

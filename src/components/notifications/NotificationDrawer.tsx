@@ -5,7 +5,11 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { useMarkNotificationRead, useNotifications } from "@/hooks/useNotifications";
+import {
+  useMarkAllNotificationsRead,
+  useMarkNotificationRead,
+  useNotifications,
+} from "@/hooks/useNotifications";
 import { useAuth } from "@/hooks/useAuth";
 
 export function NotificationDrawer() {
@@ -14,6 +18,7 @@ export function NotificationDrawer() {
   const { data = [] } = useNotifications();
   const { role } = useAuth();
   const markRead = useMarkNotificationRead();
+  const markAllRead = useMarkAllNotificationsRead();
   const unreadCount = data.filter((item) => !item.read).length;
 
   return (
@@ -33,8 +38,18 @@ export function NotificationDrawer() {
       ) : null}
       {open ? (
         <Card className="absolute right-0 top-12 z-40 w-80 p-0">
-          <div className="border-b border-slate-200 p-4">
+          <div className="flex items-center justify-between border-b border-slate-200 p-4">
             <h2 className="font-semibold text-slate-950">Notifications</h2>
+            {unreadCount > 0 ? (
+              <button
+                className="text-xs font-semibold text-primary hover:underline"
+                disabled={markAllRead.isPending}
+                onClick={() => markAllRead.mutate()}
+                type="button"
+              >
+                Mark all read
+              </button>
+            ) : null}
           </div>
           <div className="max-h-96 overflow-y-auto p-2">
             {data.length === 0 ? (

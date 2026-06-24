@@ -1,4 +1,19 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Task Assignment Dashboard Frontend
+
+## Backend configuration
+
+Copy `.env.example` to `.env.local` and configure:
+
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:3000/api/v1
+NEXT_PUBLIC_UPLOADS_URL=http://localhost:3000/uploads
+NEXT_PUBLIC_ENABLE_MOCKS=false
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=your_web_push_public_key
+```
+
+Mock fallback is disabled by default so backend validation and authorization errors are not hidden. Tokens are kept in session storage, the access token is sent as a Bearer token, and a failed authenticated request is retried once after refreshing the access token.
+
+The backend runs at `http://localhost:3000`, so the frontend development server is configured to run at `http://localhost:3001`.
 
 ## Getting Started
 

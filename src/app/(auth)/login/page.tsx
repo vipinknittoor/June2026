@@ -1,7 +1,6 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { jwtDecode } from "jwt-decode";
 import { LogIn } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -13,17 +12,8 @@ import { Input } from "@/components/ui/Input";
 import { login } from "@/services/auth.service";
 import { setCredentials } from "@/store/authSlice";
 import { loginSchema, type LoginFormValues } from "@/schemas/login.schema";
-import type { Role, User } from "@/types/user.types";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
-
-interface DecodedToken {
-  userId: string;
-  name?: string;
-  email?: string;
-  role: Role;
-  exp: number;
-}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -61,9 +51,8 @@ export default function LoginPage() {
 
     try {
       const response = await login(values);
-      const decoded = jwtDecode<DecodedToken>(response.token);
 
-      if (decoded.role !== selectedRole) {
+      if (response.user.role !== selectedRole) {
         setError(
           `This account is not registered as ${
             selectedRole === "ADMIN" ? "an Admin/Manager" : "an Employee"
@@ -72,15 +61,17 @@ export default function LoginPage() {
         return;
       }
 
-      const user: User = {
-        id: decoded.userId,
-        name: decoded.name ?? values.email.split("@")[0],
-        email: decoded.email ?? values.email,
-        role: decoded.role,
-      };
-
-      dispatch(setCredentials({ token: response.token, user, role: decoded.role }));
-      router.replace(decoded.role === "ADMIN" ? "/admin/dashboard" : "/employee/dashboard");
+      dispatch(
+        setCredentials({
+          token: response.accessToken,
+          refreshToken: response.refreshToken,
+          user: response.user,
+          role: response.user.role,
+        }),
+      );
+      router.replace(
+        response.user.role === "ADMIN" ? "/admin/dashboard" : "/employee/dashboard",
+      );
     } catch {
       setError("Unable to sign in. Check your email and password.");
     }

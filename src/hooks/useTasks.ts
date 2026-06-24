@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addEmployee,
+  autofillTask,
   createTask,
   deleteTask,
   denyTask,
@@ -52,6 +53,12 @@ export function useCreateTask() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
+  });
+}
+
+export function useAutofillTask() {
+  return useMutation({
+    mutationFn: (title: string) => autofillTask(title),
   });
 }
 

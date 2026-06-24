@@ -1,4 +1,4 @@
-import { api } from "@/lib/axios";
+import { api, type ApiResponse, unwrapApiData } from "@/lib/axios";
 import type { Comment as TaskComment, Task, TaskStatus } from "@/types/task.types";
 import type { User } from "@/types/user.types";
 import type { TaskFormValues } from "@/schemas/task.schema";
@@ -24,24 +24,34 @@ export interface ProgressPayload {
   effortHours: number;
 }
 
+export interface AutofillTaskDetails {
+  description: string;
+  goal: string;
+  acceptanceCriteria: string;
+  startDate: string;
+  endDate: string;
+}
+
 export type CreateTaskPayload = TaskFormValues & {
   status: "DRAFT" | "ASSIGNED";
 };
 
 export async function getTasks(filters?: TaskFilters): Promise<Task[]> {
   try {
-    const response = await api.get<Task[]>("/tasks", { params: filters });
-    return response.data;
-  } catch {
+    const response = await api.get<ApiResponse<Task[]>>("/tasks", { params: filters });
+    return unwrapApiData(response);
+  } catch (error) {
+    requireMockMode(error);
     return filterTasks(mockTasks, filters);
   }
 }
 
 export async function getMyTasks(): Promise<Task[]> {
   try {
-    const response = await api.get<Task[]>("/tasks/my");
-    return response.data;
-  } catch {
+    const response = await api.get<ApiResponse<Task[]>>("/tasks/my");
+    return unwrapApiData(response);
+  } catch (error) {
+    requireMockMode(error);
     return mockTasks.filter((task) =>
       task.status !== "DRAFT" &&
       task.assignees.some((assignee) => assignee.id === "employee-1"),
@@ -51,9 +61,10 @@ export async function getMyTasks(): Promise<Task[]> {
 
 export async function getTask(taskId: string): Promise<Task> {
   try {
-    const response = await api.get<Task>(`/tasks/${taskId}`);
-    return response.data;
-  } catch {
+    const response = await api.get<ApiResponse<Task>>(`/tasks/${taskId}`);
+    return unwrapApiData(response);
+  } catch (error) {
+    requireMockMode(error);
     const task = mockTasks.find((item) => item.id === taskId);
 
     if (!task) {
@@ -66,9 +77,10 @@ export async function getTask(taskId: string): Promise<Task> {
 
 export async function createTask(payload: CreateTaskPayload): Promise<Task> {
   try {
-    const response = await api.post<Task>("/tasks", payload);
-    return response.data;
-  } catch {
+    const response = await api.post<ApiResponse<Task>>("/tasks", payload);
+    return unwrapApiData(response);
+  } catch (error) {
+    requireMockMode(error);
     if (
       payload.status === "ASSIGNED" &&
       (payload.assigneeIds.length === 0 || !payload.reviewingManagerId)
@@ -118,9 +130,10 @@ export async function createTask(payload: CreateTaskPayload): Promise<Task> {
 
 export async function updateTask(taskId: string, payload: TaskFormValues): Promise<Task> {
   try {
-    const response = await api.put<Task>(`/tasks/${taskId}`, payload);
-    return response.data;
-  } catch {
+    const response = await api.put<ApiResponse<Task>>(`/tasks/${taskId}`, payload);
+    return unwrapApiData(response);
+  } catch (error) {
+    requireMockMode(error);
     const assignees = demoUsers.filter((user) => payload.assigneeIds.includes(user.id));
     const reviewingManager =
       demoUsers.find((user) => user.id === payload.reviewingManagerId) ?? demoUsers[0];
@@ -164,7 +177,8 @@ export async function updateTask(taskId: string, payload: TaskFormValues): Promi
 export async function deleteTask(taskId: string): Promise<void> {
   try {
     await api.delete(`/tasks/${taskId}`);
-  } catch {
+  } catch (error) {
+    requireMockMode(error);
     const task = mockTasks.find((item) => item.id === taskId);
 
     if (!task) {
@@ -185,9 +199,13 @@ export async function updateTaskStatus(
   note?: string,
 ): Promise<Task> {
   try {
-    const response = await api.patch<Task>(`/tasks/${taskId}/status`, { status, note });
-    return response.data;
-  } catch {
+    const response = await api.patch<ApiResponse<Task>>(`/tasks/${taskId}/status`, {
+      status,
+      note,
+    });
+    return unwrapApiData(response);
+  } catch (error) {
+    requireMockMode(error);
     const existingTask = mockTasks.find((task) => task.id === taskId);
 
     if (!existingTask) {
@@ -277,9 +295,10 @@ export async function updateTaskStatus(
 
 export async function denyTask(taskId: string, reason: string): Promise<Task> {
   try {
-    const response = await api.patch<Task>(`/tasks/${taskId}/deny`, { reason });
-    return response.data;
-  } catch {
+    const response = await api.patch<ApiResponse<Task>>(`/tasks/${taskId}/deny`, { reason });
+    return unwrapApiData(response);
+  } catch (error) {
+    requireMockMode(error);
     const updatedTask = await updateTaskStatus(taskId, "DENIED", reason);
     const updatedTasks = mockTasks.map((task) =>
       task.id === taskId ? { ...task, denialReason: reason } : task,
@@ -305,9 +324,13 @@ export async function saveProgress(
   payload: ProgressPayload,
 ): Promise<Task> {
   try {
-    const response = await api.patch<Task>(`/tasks/${taskId}/progress`, payload);
-    return response.data;
-  } catch {
+    const response = await api.patch<ApiResponse<Task>>(
+      `/tasks/${taskId}/progress`,
+      payload,
+    );
+    return unwrapApiData(response);
+  } catch (error) {
+    requireMockMode(error);
     const updatedTasks = mockTasks.map((task) =>
       task.id === taskId
         ? {
@@ -353,12 +376,19 @@ export async function uploadAttachment(taskId: string, file: File): Promise<Task
   formData.append("file", file);
 
   try {
-    const response = await api.post<Task>(`/tasks/${taskId}/attachments`, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    const response = await api.post<ApiResponse<Task>>(
+      `/tasks/${taskId}/attachments`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      }
+    );
 
-    return response.data;
-  } catch {
+    return unwrapApiData(response);
+  } catch (error) {
+    requireMockMode(error);
     const updatedTasks = mockTasks.map((task) =>
       task.id === taskId
         ? {
@@ -389,18 +419,24 @@ export async function uploadAttachment(taskId: string, file: File): Promise<Task
 
 export async function getEmployees(): Promise<User[]> {
   try {
-    const response = await api.get<User[]>("/users", { params: { role: "EMPLOYEE" } });
-    return response.data;
-  } catch {
+    const response = await api.get<ApiResponse<User[]>>("/users", {
+      params: { role: "EMPLOYEE" },
+    });
+    return unwrapApiData(response);
+  } catch (error) {
+    requireMockMode(error);
     return demoUsers.filter((user) => user.role === "EMPLOYEE");
   }
 }
 
 export async function getManagers(): Promise<User[]> {
   try {
-    const response = await api.get<User[]>("/users", { params: { role: "ADMIN" } });
-    return response.data;
-  } catch {
+    const response = await api.get<ApiResponse<User[]>>("/users", {
+      params: { role: "ADMIN" },
+    });
+    return unwrapApiData(response);
+  } catch (error) {
+    requireMockMode(error);
     return demoUsers.filter((user) => user.role === "ADMIN");
   }
 }
@@ -415,9 +451,10 @@ export interface AddEmployeePayload {
 
 export async function addEmployee(payload: AddEmployeePayload): Promise<User> {
   try {
-    const response = await api.post<User>("/users", payload);
-    return response.data;
-  } catch {
+    const response = await api.post<ApiResponse<User>>("/users", payload);
+    return unwrapApiData(response);
+  } catch (error) {
+    requireMockMode(error);
     const emailLower = payload.email.trim().toLowerCase();
     const newUser: User = {
       id: `${payload.role.toLowerCase()}-${Date.now()}`,
@@ -432,6 +469,13 @@ export async function addEmployee(payload: AddEmployeePayload): Promise<User> {
     }
     return newUser;
   }
+}
+
+export async function autofillTask(title: string): Promise<AutofillTaskDetails> {
+  const response = await api.post<ApiResponse<AutofillTaskDetails>>("/tasks/autofill", {
+    title,
+  });
+  return unwrapApiData(response);
 }
 
 function filterTasks(tasks: Task[], filters?: TaskFilters): Task[] {
@@ -486,4 +530,10 @@ function getTransitionAction(status: TaskStatus): string {
   };
 
   return actions[status];
+}
+
+function requireMockMode(error: unknown): void {
+  if (process.env.NEXT_PUBLIC_ENABLE_MOCKS !== "true") {
+    throw error;
+  }
 }

@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertCircle, Check, CheckCircle, Clock, Paperclip, Pencil, RotateCcw, Send, Trash2, X } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -23,7 +23,7 @@ import {
   useTaskStatusMutation,
   useUpdateTask,
 } from "@/hooks/useTasks";
-import { formatDate } from "@/lib/utils";
+import { formatDate, getAttachmentUrl } from "@/lib/utils";
 import { reopenSchema, type ReopenFormValues } from "@/schemas/denial.schema";
 import { taskSchema, type TaskFormValues } from "@/schemas/task.schema";
 
@@ -54,7 +54,7 @@ export default function AdminTaskDetailPage() {
     formState: { errors },
   } = reopenForm;
 
-  useEffect(() => {
+  function openEditModal() {
     if (!task) {
       return;
     }
@@ -71,7 +71,8 @@ export default function AdminTaskDetailPage() {
       reviewingManagerId: task.reviewingManager.id,
     });
     setEditAssigneeIds(task.assignees.map((user) => user.id));
-  }, [editForm, task]);
+    setEditOpen(true);
+  }
 
   async function reopen(values: ReopenFormValues) {
     await statusMutation.mutateAsync({ status: "REOPENED", note: values.comment });
@@ -132,7 +133,7 @@ export default function AdminTaskDetailPage() {
           <div className="flex flex-wrap gap-2">
             <Button
               icon={<Pencil className="h-4 w-4" />}
-              onClick={() => setEditOpen(true)}
+              onClick={openEditModal}
               type="button"
               variant="secondary"
             >
@@ -192,6 +193,7 @@ export default function AdminTaskDetailPage() {
         <Info label="End" value={formatDate(task.endDate)} />
         <Info label="Reviewing manager" value={task.reviewingManager.name} />
         <Info label="Assignees" value={task.assignees.map((user) => user.name).join(", ")} />
+        <Info label="Effort logged" value={task.effortHours ? `${task.effortHours}h` : "0h"} />
       </Card>
       {/* RAG Health Graph */}
       <RAGIndicator task={task} />
@@ -205,6 +207,60 @@ export default function AdminTaskDetailPage() {
           <p className="text-sm text-red-800">{task.denialReason}</p>
         </Card>
       ) : null}
+      <Card>
+        <h3 className="mb-3 font-bold text-slate-950 text-base border-b border-slate-100 pb-2">Submissions &amp; Effort Summary</h3>
+        <div className="grid gap-6 md:grid-cols-2">
+          {/* Effort Logs Column */}
+          <div>
+            <h4 className="mb-2.5 text-sm font-semibold text-slate-700">All Effort Logs ({task.effortLogs.length})</h4>
+            {task.effortLogs.length > 0 ? (
+              <div className="space-y-2">
+                {task.effortLogs.map((log) => (
+                  <div key={log.id} className="rounded-lg border border-slate-100 bg-slate-50/50 p-3 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-slate-900">{log.actor.name}</span>
+                      <span className="inline-flex items-center gap-1 rounded bg-emerald-50 px-2 py-0.5 text-xs font-bold text-emerald-700 border border-emerald-100">
+                        <Clock className="h-3 w-3" />
+                        {log.hours}h
+                      </span>
+                    </div>
+                    {log.note ? <p className="mt-1.5 text-xs text-slate-600 leading-normal">{log.note}</p> : null}
+                    <p className="mt-1 text-[10px] text-slate-400">{formatDate(log.createdAt)}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400 italic">No effort hours logged yet.</p>
+            )}
+          </div>
+
+          {/* Attachments Column */}
+          <div>
+            <h4 className="mb-2.5 text-sm font-semibold text-slate-700">All Uploaded Files ({task.attachments.length})</h4>
+            {task.attachments.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {task.attachments.map((att) => (
+                  <a
+                    key={att.id}
+                    href={getAttachmentUrl(att.fileUrl)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:border-primary hover:text-primary transition shadow-sm"
+                  >
+                    <Paperclip className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                    <div className="text-left">
+                      <p className="font-semibold truncate max-w-[180px]">{att.fileUrl.split("/").pop()}</p>
+                      <p className="text-[10px] text-slate-400">{formatDate(att.createdAt)}</p>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-400 italic">No files uploaded yet.</p>
+            )}
+          </div>
+        </div>
+      </Card>
       <Card>
         <h3 className="mb-3 font-semibold text-slate-950">Comments</h3>
         <CommentThread comments={task.comments} />
@@ -319,15 +375,13 @@ export default function AdminTaskDetailPage() {
                                     {attachmentsOnDay.map((att) => (
                                       <a
                                         key={att.id}
-                                        href="#"
-                                        onClick={(e) => {
-                                          e.preventDefault();
-                                          alert(`Downloading file: ${att.fileUrl}`);
-                                        }}
+                                        href={getAttachmentUrl(att.fileUrl)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
                                         className="inline-flex items-center gap-1 rounded bg-white border border-slate-200 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 transition"
                                       >
                                         <Paperclip className="h-3 w-3 text-slate-400 shrink-0" />
-                                        <span className="truncate max-w-[150px]">{att.fileUrl}</span>
+                                        <span className="truncate max-w-[150px]">{att.fileUrl.split("/").pop()}</span>
                                       </a>
                                     ))}
                                   </div>

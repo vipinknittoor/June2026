@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Send, Save, X } from "lucide-react";
+import { Send, Save, Sparkles, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -10,12 +10,18 @@ import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
-import { useCreateTask, useEmployees, useManagers } from "@/hooks/useTasks";
+import {
+  useAutofillTask,
+  useCreateTask,
+  useEmployees,
+  useManagers,
+} from "@/hooks/useTasks";
 import { taskSchema, type TaskFormValues } from "@/schemas/task.schema";
 
 export default function CreateTaskPage() {
   const router = useRouter();
   const createTask = useCreateTask();
+  const autofillTask = useAutofillTask();
   const employees = useEmployees();
   const managers = useManagers();
   const employeeList = employees.data ?? [];
@@ -24,6 +30,7 @@ export default function CreateTaskPage() {
 
   const {
     register,
+    getValues,
     handleSubmit,
     setError,
     setValue,
@@ -66,6 +73,23 @@ export default function CreateTaskPage() {
     router.push(`/admin/tasks/${task.id}`);
   }
 
+  async function handleAutofill() {
+    const title = getValues("title")?.trim();
+    if (!title || title.length < 3) {
+      setError("title", { message: "Enter a task title before using AI autofill" });
+      return;
+    }
+
+    const details = await autofillTask.mutateAsync(title);
+    setValue("description", details.description, { shouldValidate: true });
+    setValue("goal", details.goal, { shouldValidate: true });
+    setValue("acceptanceCriteria", details.acceptanceCriteria, {
+      shouldValidate: true,
+    });
+    setValue("startDate", details.startDate, { shouldValidate: true });
+    setValue("endDate", details.endDate, { shouldValidate: true });
+  }
+
   return (
     <div className="mx-auto max-w-4xl">
       <div className="mb-6">
@@ -74,7 +98,23 @@ export default function CreateTaskPage() {
       </div>
       <Card>
         <form className="grid gap-5" onSubmit={handleSubmit(onSubmit)}>
-          <Input error={errors.title?.message} label="Title" {...register("title")} />
+          <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
+            <Input error={errors.title?.message} label="Title" {...register("title")} />
+            <Button
+              icon={<Sparkles className="h-4 w-4" />}
+              isLoading={autofillTask.isPending}
+              onClick={handleAutofill}
+              type="button"
+              variant="secondary"
+            >
+              AI autofill
+            </Button>
+          </div>
+          {autofillTask.isError ? (
+            <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+              AI task details could not be generated.
+            </p>
+          ) : null}
           <Textarea error={errors.description?.message} label="Description" {...register("description")} />
           <Textarea error={errors.goal?.message} label="Goal" {...register("goal")} />
           <div className="grid gap-5 sm:grid-cols-2">

@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
+import { useState } from "react";
 import {
   ClipboardList,
   Home,
@@ -13,10 +15,12 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { NotificationDrawer } from "@/components/notifications/NotificationDrawer";
+import { PushNotificationButton } from "@/components/notifications/PushNotificationButton";
 import { clearAuth } from "@/store/authSlice";
 import { setSidebarOpen } from "@/store/uiSlice";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { logout } from "@/services/auth.service";
 
 interface NavItem {
   href: string;
@@ -34,7 +38,20 @@ export function AppShell({
   title: string;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { dispatch, user } = useAuth();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  async function handleLogout() {
+    setIsLoggingOut(true);
+    try {
+      await logout();
+    } finally {
+      dispatch(clearAuth());
+      router.replace("/login");
+      setIsLoggingOut(false);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-950">
@@ -78,12 +95,14 @@ export function AppShell({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <PushNotificationButton />
             <NotificationDrawer />
             <Button
               aria-label="Logout"
               className="h-10 w-10 px-0"
               icon={<LogOut className="h-5 w-5" />}
-              onClick={() => dispatch(clearAuth())}
+              isLoading={isLoggingOut}
+              onClick={handleLogout}
               type="button"
               variant="ghost"
             />
