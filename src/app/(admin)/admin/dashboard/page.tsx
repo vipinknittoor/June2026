@@ -20,9 +20,13 @@ export default function AdminDashboardPage() {
   const submitted = data.filter((task) => task.status === "SUBMITTED").length;
   const overdue = data.filter((task) => isOverdue(task.endDate) && task.status !== "APPROVED").length;
 
-  const employees = employeesQuery.data ?? [];
-  const managers = managersQuery.data ?? [];
-  const allMembers: User[] = useMemo(() => [...managers, ...employees], [managers, employees]);
+  const employees = employeesQuery.data;
+  const managers = managersQuery.data;
+  const allMembers: User[] = useMemo(() => {
+    const mgrs = managers ?? [];
+    const emps = employees ?? [];
+    return [...mgrs, ...emps];
+  }, [managers, employees]);
 
   const [titleFilter, setTitleFilter] = useState<string>("ALL");
 

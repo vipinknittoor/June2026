@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import {
+  Bot,
   ClipboardList,
   Home,
   LogOut,
@@ -134,6 +135,7 @@ export const adminNavItems: NavItem[] = [
   { href: "/admin/tasks", label: "Tasks", icon: <ClipboardList className="h-4 w-4" /> },
   { href: "/admin/tasks/create", label: "Create", icon: <PlusCircle className="h-4 w-4" /> },
   { href: "/admin/employees", label: "Team", icon: <Users className="h-4 w-4" /> },
+  { href: "/admin/assistant", label: "AI Assistant", icon: <Bot className="h-4 w-4" /> },
 ];
 
 export const employeeNavItems: NavItem[] = [

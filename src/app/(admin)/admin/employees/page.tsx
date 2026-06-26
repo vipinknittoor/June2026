@@ -25,30 +25,34 @@ export default function EmployeesPage() {
   const [titleFilter, setTitleFilter] = useState<string>("ALL");
   const [search, setSearch] = useState("");
 
-  const employees = employeesQuery.data ?? [];
-  const managers = managersQuery.data ?? [];
+  const employees = employeesQuery.data;
+  const managers = managersQuery.data;
   const isLoading = employeesQuery.isLoading || managersQuery.isLoading;
   const isError = employeesQuery.isError || managersQuery.isError;
 
-  const allMembers: User[] = useMemo(() => [...managers, ...employees], [managers, employees]);
+  const allMembers: User[] = useMemo(() => {
+    const mgrs = managers ?? [];
+    const emps = employees ?? [];
+    return [...mgrs, ...emps];
+  }, [managers, employees]);
 
-  const filteredManagers = useMemo(() =>
-    managers.filter((m) => {
+  const filteredManagers = useMemo(() => {
+    const mgrs = managers ?? [];
+    return mgrs.filter((m) => {
       const matchesTitle = titleFilter === "ALL" || m.title === titleFilter;
       const matchesSearch = search === "" || m.name.toLowerCase().includes(search.toLowerCase()) || m.email.toLowerCase().includes(search.toLowerCase());
       return matchesTitle && matchesSearch;
-    }),
-    [managers, titleFilter, search],
-  );
+    });
+  }, [managers, titleFilter, search]);
 
-  const filteredEmployees = useMemo(() =>
-    employees.filter((e) => {
+  const filteredEmployees = useMemo(() => {
+    const emps = employees ?? [];
+    return emps.filter((e) => {
       const matchesTitle = titleFilter === "ALL" || e.title === titleFilter;
       const matchesSearch = search === "" || e.name.toLowerCase().includes(search.toLowerCase()) || e.email.toLowerCase().includes(search.toLowerCase());
       return matchesTitle && matchesSearch;
-    }),
-    [employees, titleFilter, search],
-  );
+    });
+  }, [employees, titleFilter, search]);
 
   // Collect unique titles present in the team
   const activeTitles = useMemo(() => {

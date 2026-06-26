@@ -142,6 +142,7 @@ function TaskDetailPanel({ task, onClose }: { task: Task; onClose: () => void })
   const progressForm = useForm<ProgressFormValues>({
     defaultValues: { notes: "", effortHours: 0 },
   });
+  const attachment = progressForm.watch("attachment");
 
   const canWork = task.status === "IN_PROGRESS" || task.status === "REOPENED";
   const reopenComments = task.comments.filter((c) => c.type === "REOPEN_COMMENT");
@@ -346,10 +347,10 @@ function TaskDetailPanel({ task, onClose }: { task: Task; onClose: () => void })
                   </div>
                 </div>
                 {/* Show selected file name */}
-                {progressForm.watch("attachment")?.[0] ? (
+                {attachment?.[0] ? (
                   <p className="mt-2 flex items-center gap-1 text-xs text-slate-500">
                     <Paperclip className="h-3 w-3" />
-                    {progressForm.watch("attachment")[0].name}
+                    {attachment[0].name}
                   </p>
                 ) : null}
                 <Button
