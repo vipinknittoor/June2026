@@ -11,7 +11,7 @@ import {
   RefreshCw,
   Layers
 } from "lucide-react";
-import { queryAgent, type AgentQueryResult, type AgentResponse } from "@/services/agent.service";
+import { queryAgent, type AgentQueryResult, type AgentResponse, type ChatHistoryEntry } from "@/services/agent.service";
 import { getAttachmentUrl } from "@/lib/utils";
 
 interface ChatMessage {
@@ -47,7 +47,15 @@ const SUGGESTIONS = [
   { label: "⚠️ Simulate syntax error query", prompt: "Query tasks where status contains invalidFilterOption" },
 ];
 
+const AVAILABLE_MODELS = [
+  { id: "gemini-2.0-flash", name: "Gemini 2.0 Flash (Fast)" },
+  { id: "gemini-1.5-pro", name: "Gemini 1.5 Pro (Smart)" },
+  { id: "gemini-3.5-flash", name: "Gemini 3.5 Flash" },
+  { id: "gemini-1.5-flash", name: "Gemini 1.5 Flash" }
+];
+
 export default function AssistantPage() {
+  const [selectedModel, setSelectedModel] = useState("gemini-2.0-flash");
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
@@ -134,8 +142,15 @@ export default function AssistantPage() {
     setIsLoading(true);
     startLoadingSteps(textToSend);
 
+    const history: ChatHistoryEntry[] = messages
+      .filter((msg) => msg.id !== "welcome")
+      .map((msg) => ({
+        role: msg.sender === "user" ? "user" : "model",
+        message: msg.text,
+      }));
+
     try {
-      const response: AgentResponse = await queryAgent(textToSend);
+      const response: AgentResponse = await queryAgent(textToSend, history, selectedModel);
       nextIdRef.current += 1;
       const botMessageId = `msg-${nextIdRef.current}`;
 
@@ -432,23 +447,46 @@ export default function AssistantPage() {
             e.preventDefault();
             handleSend(input);
           }}
-          className="p-4 border-t border-slate-200 bg-white flex gap-3 shrink-0 items-center"
+          className="p-4 border-t border-slate-200 bg-white shrink-0"
         >
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask the AI Assistant (e.g., 'Give me a list of all active employees')..."
-            disabled={isLoading}
-            className="flex-1 h-11 px-4 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:bg-slate-100 disabled:opacity-60 transition"
-          />
-          <button
-            type="submit"
-            disabled={!input.trim() || isLoading}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-lg bg-primary text-white hover:bg-primary-hover transition shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            <Send className="h-5 w-5" />
-          </button>
+          <div className="border border-slate-200 rounded-xl bg-slate-50/30 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10 transition overflow-hidden">
+            {/* Input field */}
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Ask the AI Assistant (e.g., 'Give me a list of all active employees')..."
+              disabled={isLoading}
+              className="w-full h-12 px-4 bg-transparent text-sm text-slate-900 placeholder-slate-400 focus:outline-none disabled:opacity-60"
+            />
+            
+            {/* Bottom Actions Bar */}
+            <div className="px-3 py-2 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
+              {/* Dropdown on Left */}
+              <div className="flex items-center gap-1.5">
+                <select
+                  value={selectedModel}
+                  onChange={(e) => setSelectedModel(e.target.value)}
+                  disabled={isLoading}
+                  className="text-xs font-semibold text-slate-600 bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 hover:border-slate-300 focus:outline-none cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed transition shadow-sm"
+                >
+                  {AVAILABLE_MODELS.map(m => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Submit button on Right */}
+              <button
+                type="submit"
+                disabled={!input.trim() || isLoading}
+                className="inline-flex h-8 px-4 items-center justify-center gap-1.5 rounded-lg bg-primary text-white hover:bg-primary-hover text-xs font-semibold transition shadow disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+              >
+                <Send className="h-3.5 w-3.5" />
+                Ask Assistant
+              </button>
+            </div>
+          </div>
         </form>
       </div>
     </motion.div>

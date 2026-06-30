@@ -31,7 +31,16 @@ export interface AgentResponse {
   retryCount?: number;
 }
 
-export async function queryAgent(prompt: string): Promise<AgentResponse> {
+export interface ChatHistoryEntry {
+  role: "user" | "model" | "assistant";
+  message: string;
+}
+
+export async function queryAgent(
+  prompt: string,
+  history?: ChatHistoryEntry[],
+  model?: string
+): Promise<AgentResponse> {
   if (process.env.NEXT_PUBLIC_ENABLE_MOCKS === "true") {
     // Simulate network latency
     await new Promise((resolve) => setTimeout(resolve, 1200));
@@ -39,7 +48,11 @@ export async function queryAgent(prompt: string): Promise<AgentResponse> {
   }
 
   try {
-    const response = await api.post<ApiResponse<AgentQueryResult>>("/agent/query", { prompt });
+    const response = await api.post<ApiResponse<AgentQueryResult>>("/agent/query", {
+      prompt,
+      history,
+      model,
+    });
     const data = response.data.data;
     if (data && data.queryResults !== undefined && data.queryResults !== null) {
       data.results = data.queryResults;
