@@ -83,14 +83,18 @@ export async function createTask(payload: CreateTaskPayload): Promise<Task> {
     requireMockMode(error);
     if (
       payload.status === "ASSIGNED" &&
-      (payload.assigneeIds.length === 0 || !payload.reviewingManagerId)
+      (payload.assigneeIds.length === 0 || !payload.reviewingManagerIds || payload.reviewingManagerIds.length === 0)
     ) {
       throw new Error("Assigned tasks require employees and a reviewing manager");
     }
 
     const assignees = demoUsers.filter((user) => payload.assigneeIds.includes(user.id));
-    const reviewingManager =
-      demoUsers.find((user) => user.id === payload.reviewingManagerId) ?? demoUsers[0];
+    const reviewingManagers = demoUsers.filter((user) =>
+      payload.reviewingManagerIds?.includes(user.id)
+    );
+    if (reviewingManagers.length === 0) {
+      reviewingManagers.push(demoUsers[0]);
+    }
     const taskId = `task-${Date.now()}`;
     const task: Task = {
       id: taskId,
@@ -100,7 +104,7 @@ export async function createTask(payload: CreateTaskPayload): Promise<Task> {
       startDate: payload.startDate,
       endDate: payload.endDate,
       assignedBy: demoUsers[0],
-      reviewingManager,
+      reviewingManagers,
       assignees,
       priority: payload.priority,
       status: payload.status,
@@ -135,8 +139,12 @@ export async function updateTask(taskId: string, payload: TaskFormValues): Promi
   } catch (error) {
     requireMockMode(error);
     const assignees = demoUsers.filter((user) => payload.assigneeIds.includes(user.id));
-    const reviewingManager =
-      demoUsers.find((user) => user.id === payload.reviewingManagerId) ?? demoUsers[0];
+    const reviewingManagers = demoUsers.filter((user) =>
+      payload.reviewingManagerIds?.includes(user.id)
+    );
+    if (reviewingManagers.length === 0) {
+      reviewingManagers.push(demoUsers[0]);
+    }
     const updatedTasks = mockTasks.map((task) =>
       task.id === taskId
         ? {
@@ -149,7 +157,7 @@ export async function updateTask(taskId: string, payload: TaskFormValues): Promi
             priority: payload.priority,
             acceptanceCriteria: payload.acceptanceCriteria,
             assignees,
-            reviewingManager,
+            reviewingManagers,
             auditLogs: [
               ...task.auditLogs,
               {
@@ -218,7 +226,7 @@ export async function updateTaskStatus(
 
     if (
       status === "ASSIGNED" &&
-      (existingTask.assignees.length === 0 || !existingTask.reviewingManager.id)
+      (existingTask.assignees.length === 0 || !existingTask.reviewingManagers || existingTask.reviewingManagers.length === 0)
     ) {
       throw new Error("Assigned tasks require employees and a reviewing manager");
     }

@@ -110,7 +110,7 @@ export default function EmployeeTaskDetailPage() {
       </Card>
       <Card className="grid gap-4 sm:grid-cols-2">
         <Info label="Goal" value={task.goal} />
-        <Info label="Reviewing manager" value={task.reviewingManager.name} />
+        <Info label="Reviewing managers" value={task.reviewingManagers?.map((u) => u.name).join(", ") || "None"} />
         <Info label="Start" value={formatDate(task.startDate)} />
         <Info label="End" value={formatDate(task.endDate)} />
         <Info label="Priority" value={task.priority} />

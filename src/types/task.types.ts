@@ -20,7 +20,7 @@ export interface Task {
   endDate: string;
   actualCompletionDate?: string;
   assignedBy: User;
-  reviewingManager: User;
+  reviewingManagers: User[];
   assignees: User[];
   effortHours?: number;
   priority: Priority;

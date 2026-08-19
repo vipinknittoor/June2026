@@ -41,6 +41,7 @@ export default function AdminTaskDetailPage() {
   const [reopenOpen, setReopenOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editAssigneeIds, setEditAssigneeIds] = useState<string[]>([]);
+  const [editReviewingManagerIds, setEditReviewingManagerIds] = useState<string[]>([]);
   const reopenForm = useForm<ReopenFormValues>({
     resolver: zodResolver(reopenSchema),
   });
@@ -68,9 +69,10 @@ export default function AdminTaskDetailPage() {
       priority: task.priority,
       acceptanceCriteria: task.acceptanceCriteria,
       assigneeIds: task.assignees.map((user) => user.id),
-      reviewingManagerId: task.reviewingManager.id,
+      reviewingManagerIds: task.reviewingManagers?.map((user) => user.id) || [],
     });
     setEditAssigneeIds(task.assignees.map((user) => user.id));
+    setEditReviewingManagerIds(task.reviewingManagers?.map((user) => user.id) || []);
     setEditOpen(true);
   }
 
@@ -94,6 +96,20 @@ export default function AdminTaskDetailPage() {
     editForm.setValue("assigneeIds", next);
   }
 
+  function toggleEditManager(id: string) {
+    const next = editReviewingManagerIds.includes(id)
+      ? editReviewingManagerIds.filter((m) => m !== id)
+      : [...editReviewingManagerIds, id];
+    setEditReviewingManagerIds(next);
+    editForm.setValue("reviewingManagerIds", next);
+  }
+
+  function removeEditManager(id: string) {
+    const next = editReviewingManagerIds.filter((m) => m !== id);
+    setEditReviewingManagerIds(next);
+    editForm.setValue("reviewingManagerIds", next);
+  }
+
   async function submitEdit(values: TaskFormValues) {
     if (task?.status !== "DRAFT") {
       if (editAssigneeIds.length === 0) {
@@ -101,13 +117,17 @@ export default function AdminTaskDetailPage() {
         return;
       }
 
-      if (!values.reviewingManagerId) {
-        editForm.setError("reviewingManagerId", { message: "Select a reviewing manager" });
+      if (editReviewingManagerIds.length === 0) {
+        editForm.setError("reviewingManagerIds", { message: "Select at least one reviewing manager" });
         return;
       }
     }
 
-    await updateTask.mutateAsync({ ...values, assigneeIds: editAssigneeIds });
+    await updateTask.mutateAsync({
+      ...values,
+      assigneeIds: editAssigneeIds,
+      reviewingManagerIds: editReviewingManagerIds,
+    });
     setEditOpen(false);
   }
 
@@ -171,7 +191,7 @@ export default function AdminTaskDetailPage() {
             </Button>
             {task.status === "DRAFT" ? (
               <Button
-                disabled={task.assignees.length === 0 || !task.reviewingManager.id}
+                disabled={task.assignees.length === 0 || !task.reviewingManagers || task.reviewingManagers.length === 0}
                 icon={<Send className="h-4 w-4" />}
                 isLoading={statusMutation.isPending}
                 onClick={() => statusMutation.mutate({ status: "ASSIGNED" })}
@@ -208,7 +228,7 @@ export default function AdminTaskDetailPage() {
         <Info label="Priority" value={task.priority} />
         <Info label="Start" value={formatDate(task.startDate)} />
         <Info label="End" value={formatDate(task.endDate)} />
-        <Info label="Reviewing manager" value={task.reviewingManager.name} />
+        <Info label="Reviewing managers" value={task.reviewingManagers?.map((user) => user.name).join(", ") || "None"} />
         <Info label="Assignees" value={task.assignees.map((user) => user.name).join(", ")} />
         <Info label="Effort logged" value={task.effortHours ? `${task.effortHours}h` : "0h"} />
         {completionDateStr && (
@@ -549,15 +569,71 @@ export default function AdminTaskDetailPage() {
               <p className="mt-1 text-xs text-red-600">{editForm.formState.errors.assigneeIds.message}</p>
             ) : null}
           </div>
-          <Select
-            error={editForm.formState.errors.reviewingManagerId?.message}
-            label="Reviewing manager"
-            {...editForm.register("reviewingManagerId")}
-          >
-            {(managers.data ?? []).map((manager) => (
-              <option key={manager.id} value={manager.id}>{manager.name}</option>
-            ))}
-          </Select>
+          {/* Reviewing managers multi-select */}
+          <div>
+            <div className="flex items-center justify-between">
+              <label className="block text-sm font-medium text-slate-700">Reviewing managers</label>
+              {editReviewingManagerIds.length === (managers.data ?? []).length && (managers.data ?? []).length > 0 ? (
+                <button
+                  className="text-xs font-medium text-red-500 hover:underline"
+                  onClick={() => { setEditReviewingManagerIds([]); editForm.setValue("reviewingManagerIds", []); }}
+                  type="button"
+                >
+                  Clear all
+                </button>
+              ) : (
+                <button
+                  className="text-xs font-medium text-primary hover:underline"
+                  onClick={() => { const all = (managers.data ?? []).map((m) => m.id); setEditReviewingManagerIds(all); editForm.setValue("reviewingManagerIds", all); }}
+                  type="button"
+                >
+                  Select all managers
+                </button>
+              )}
+            </div>
+            <select
+              className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary"
+              onChange={(e) => {
+                if (e.target.value) toggleEditManager(e.target.value);
+                e.target.value = "";
+              }}
+              value=""
+            >
+              <option value="">— Select a reviewing manager to add —</option>
+              {(managers.data ?? [])
+                .filter((mgr) => !editReviewingManagerIds.includes(mgr.id))
+                .map((mgr) => (
+                  <option key={mgr.id} value={mgr.id}>
+                    {mgr.name}{mgr.title ? ` · ${mgr.title}` : ""}
+                  </option>
+                ))}
+            </select>
+            {editReviewingManagerIds.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {editReviewingManagerIds.map((id) => {
+                  const mgr = (managers.data ?? []).find((m) => m.id === id);
+                  return mgr ? (
+                    <span
+                      className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+                      key={id}
+                    >
+                      {mgr.name}
+                      <button
+                        className="rounded-full hover:text-red-500"
+                        onClick={() => removeEditManager(id)}
+                        type="button"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ) : null;
+                })}
+              </div>
+            )}
+            {editForm.formState.errors.reviewingManagerIds?.message ? (
+              <p className="mt-1 text-xs text-red-600">{editForm.formState.errors.reviewingManagerIds.message}</p>
+            ) : null}
+          </div>
           <Textarea
             error={editForm.formState.errors.acceptanceCriteria?.message}
             label="Acceptance criteria"

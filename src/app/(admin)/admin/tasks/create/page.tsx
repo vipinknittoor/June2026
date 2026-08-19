@@ -27,6 +27,7 @@ export default function CreateTaskPage() {
   const employeeList = employees.data ?? [];
   const [submitMode, setSubmitMode] = useState<"DRAFT" | "ASSIGNED">("ASSIGNED");
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
+  const [reviewingManagerIds, setReviewingManagerIds] = useState<string[]>([]);
 
   const {
     register,
@@ -40,6 +41,7 @@ export default function CreateTaskPage() {
     defaultValues: {
       priority: "MEDIUM",
       assigneeIds: [],
+      reviewingManagerIds: [],
     },
   });
 
@@ -57,19 +59,38 @@ export default function CreateTaskPage() {
     setValue("assigneeIds", next);
   }
 
+  function toggleManager(id: string) {
+    const next = reviewingManagerIds.includes(id)
+      ? reviewingManagerIds.filter((m) => m !== id)
+      : [...reviewingManagerIds, id];
+    setReviewingManagerIds(next);
+    setValue("reviewingManagerIds", next);
+  }
+
+  function removeManager(id: string) {
+    const next = reviewingManagerIds.filter((m) => m !== id);
+    setReviewingManagerIds(next);
+    setValue("reviewingManagerIds", next);
+  }
+
   async function onSubmit(values: TaskFormValues) {
     if (submitMode === "ASSIGNED") {
       if (assigneeIds.length === 0) {
         setError("assigneeIds", { message: "Select at least one employee to assign" });
         return;
       }
-      if (!values.reviewingManagerId) {
-        setError("reviewingManagerId", { message: "Select a reviewing manager to assign" });
+      if (reviewingManagerIds.length === 0) {
+        setError("reviewingManagerIds", { message: "Select at least one reviewing manager to assign" });
         return;
       }
     }
 
-    const task = await createTask.mutateAsync({ ...values, assigneeIds, status: submitMode });
+    const task = await createTask.mutateAsync({
+      ...values,
+      assigneeIds,
+      reviewingManagerIds,
+      status: submitMode,
+    });
     router.push(`/admin/tasks/${task.id}`);
   }
 
@@ -197,16 +218,75 @@ export default function CreateTaskPage() {
             ) : null}
           </div>
 
-          <Select
-            error={errors.reviewingManagerId?.message}
-            label="Reviewing manager"
-            {...register("reviewingManagerId")}
-          >
-            <option value="">Select manager</option>
-            {(managers.data ?? []).map((manager) => (
-              <option key={manager.id} value={manager.id}>{manager.name}</option>
-            ))}
-          </Select>
+          {/* Managers multi-select dropdown */}
+          <div>
+            <div className="flex items-center justify-between">
+              <label className="block text-sm font-medium text-slate-700">Reviewing managers</label>
+              {reviewingManagerIds.length === (managers.data ?? []).length && (managers.data ?? []).length > 0 ? (
+                <button
+                  className="text-xs font-medium text-red-500 hover:underline"
+                  onClick={() => { setReviewingManagerIds([]); setValue("reviewingManagerIds", []); }}
+                  type="button"
+                >
+                  Clear all
+                </button>
+              ) : (
+                <button
+                  className="text-xs font-medium text-primary hover:underline"
+                  onClick={() => { const all = (managers.data ?? []).map((m) => m.id); setReviewingManagerIds(all); setValue("reviewingManagerIds", all); }}
+                  type="button"
+                >
+                  Select all managers
+                </button>
+              )}
+            </div>
+            <select
+              className="mt-1 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-primary"
+              onChange={(e) => {
+                const id = e.target.value;
+                if (id) toggleManager(id);
+                e.target.value = "";
+              }}
+              value=""
+            >
+              <option value="">— Select a reviewing manager to add —</option>
+              {(managers.data ?? [])
+                .filter((mgr) => !reviewingManagerIds.includes(mgr.id))
+                .map((mgr) => (
+                  <option key={mgr.id} value={mgr.id}>
+                    {mgr.name}{mgr.title ? ` · ${mgr.title}` : ""}
+                  </option>
+                ))}
+            </select>
+
+            {/* Selected manager tags */}
+            {reviewingManagerIds.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {reviewingManagerIds.map((id) => {
+                  const mgr = (managers.data ?? []).find((m) => m.id === id);
+                  return mgr ? (
+                    <span
+                      className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+                      key={id}
+                    >
+                      {mgr.name}
+                      <button
+                        className="rounded-full hover:text-red-500"
+                        onClick={() => removeManager(id)}
+                        type="button"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ) : null;
+                })}
+              </div>
+            )}
+
+            {errors.reviewingManagerIds?.message ? (
+              <p className="mt-1 text-xs text-red-600">{errors.reviewingManagerIds.message}</p>
+            ) : null}
+          </div>
           <Textarea
             error={errors.acceptanceCriteria?.message}
             label="Acceptance criteria"

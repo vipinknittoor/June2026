@@ -9,7 +9,7 @@ export const taskSchema = z.object({
   priority: z.enum(["LOW", "MEDIUM", "HIGH"]),
   acceptanceCriteria: z.string().min(10, "Acceptance criteria must be clear"),
   assigneeIds: z.array(z.string()),
-  reviewingManagerId: z.string(),
+  reviewingManagerIds: z.array(z.string()),
 });
 
 export type TaskFormValues = z.infer<typeof taskSchema>;

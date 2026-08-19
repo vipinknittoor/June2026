@@ -212,7 +212,7 @@ function TaskDetailPanel({ task, onClose }: { task: Task; onClose: () => void })
           <Section title="Details">
             <div className="grid grid-cols-2 gap-3">
               <Info label="Goal" value={task.goal} />
-              <Info label="Reviewing manager" value={task.reviewingManager.name} />
+              <Info label="Reviewing managers" value={task.reviewingManagers?.map((u) => u.name).join(", ") || "None"} />
               <Info label="Start date" value={formatDate(task.startDate)} />
               <Info label="End date" value={formatDate(task.endDate)} />
               <Info label="Acceptance criteria" value={task.acceptanceCriteria} />
