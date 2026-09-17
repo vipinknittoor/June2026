@@ -26,3 +26,6 @@ jobs:
 
       - name: Build frontend
         run: npm run build
+        
+      - name: Build Docker image
+        run: docker build -t ticketing-frontend:ci .
