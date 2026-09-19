@@ -87,7 +87,7 @@ export default function LoginPage() {
         <Card>
           <div className="mb-6">
             <p className="text-sm font-semibold uppercase tracking-wide text-teal-600">
-              Task Assign Dashboard
+              Task Assign Dashboard (staging)
             </p>
             <h1 className="mt-2 text-2xl font-bold text-slate-950">Sign in</h1>
           </div>
