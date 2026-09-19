@@ -1,15 +1,16 @@
-name: Frontend CI
+name: Frontend CI/CD
 
 on:
   push:
     branches:
       - main
-  pull_request:
-    branches:
-      - main
+
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -24,8 +25,70 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build frontend
+      - name: Build Next.js application
         run: npm run build
-        
-      - name: Build Docker image
-        run: docker build -t ticketing-frontend:ci .
+
+      - name: Configure AWS Credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ap-south-1
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push Docker image to ECR
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          REPOSITORY: ticketing-frontend
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build \
+            -t $REGISTRY/$REPOSITORY:$IMAGE_TAG \
+            -t $REGISTRY/$REPOSITORY:latest .
+          docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
+          docker push $REGISTRY/$REPOSITORY:latest
+
+      - name: Deploy to Staging EC2 via SSM
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploying updated frontend container from ECR" \
+            --parameters 'commands=[
+              "aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 042360977307.dkr.ecr.ap-south-1.amazonaws.com",
+              "docker pull 042360977307.dkr.ecr.ap-south-1.amazonaws.com/ticketing-frontend:latest",
+              "docker stop ticketing-frontend || true",
+              "docker rm ticketing-frontend || true",
+              "docker run -d --name ticketing-frontend -p 127.0.0.1:3001:3000 --restart always 042360977307.dkr.ecr.ap-south-1.amazonaws.com/ticketing-frontend:latest",
+              "docker image prune -f"
+            ]' \
+            --query "Command.CommandId" \
+            --output text)
+
+          echo "SSM Command sent. Command ID: $COMMAND_ID"
+
+          # Wait for SSM command to finish executing on the EC2 instance
+          aws ssm wait command-executed \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ secrets.EC2_INSTANCE_ID }}"
+
+          # Verify final status
+          STATUS=$(aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
+            --query "Status" \
+            --output text)
+
+          echo "Deployment SSM Status: $STATUS"
+
+          if [ "$STATUS" != "Success" ]; then
+            echo "SSM Deployment Failed!"
+            aws ssm get-command-invocation \
+              --command-id "$COMMAND_ID" \
+              --instance-id "${{ secrets.EC2_INSTANCE_ID }}" \
+              --query "StandardErrorContent" \
+              --output text
+            exit 1
+          fi
